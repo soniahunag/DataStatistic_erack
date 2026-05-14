@@ -1,0 +1,26 @@
+# Python virtual environment
+.venv/
+venv/
+env/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Secrets / environment
+.env
+*.env
+
+# Local / generated files
+*.log
+*.tmp
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Ignore deployment file
+deployment.yaml
