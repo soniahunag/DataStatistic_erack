@@ -1,5 +1,5 @@
 import pandas as pd
-from sqlalchemy import create_engine, text
+from sqlalchemy import create_engine
 from datetime import datetime, timedelta
 import  matplotlib.pyplot as plt
 import seaborn as sns
@@ -10,12 +10,6 @@ server = r'10.89.29.56,51633\SQLEXPRESS'
 database = 'INX_CERACK02'
 username = 'sa'
 password = '..cmo123'
-
-# Login table settings - adjust these names to match your existing table
-LOGIN_TABLE = "USER_INFO"
-LOGIN_USER_ID_COLUMN = "User_ID"
-LOGIN_PASSWORD_COLUMN = "Password"
-
 
 #--set dashboard title and description---
 st.set_page_config(page_title="ERACK DISABLE Events Analysis", page_icon="📊",layout="wide")
@@ -120,139 +114,37 @@ def run_tab2_query(engine , selected_id):
         st.error(f"An error occurred while fetching data in tab2: {e}")
         return pd.DataFrame()
 
-def initialize_login_state():
-    """Initialize login-related values once for each browser session."""
-    if "is_logged_in" not in st.session_state:
-        st.session_state.is_logged_in = False
-    if "login_user_id" not in st.session_state:
-        st.session_state.login_user_id = ""
-
-
-def authenticate_user(engine, user_id, user_password):
-    """Validate the supplied credentials against the existing SQL Server table."""
-    login_sql = text(f"""
-        SELECT TOP 1 [{LOGIN_USER_ID_COLUMN}]
-        FROM [{LOGIN_TABLE}]
-        WHERE [{LOGIN_USER_ID_COLUMN}] = :user_id
-          AND [{LOGIN_PASSWORD_COLUMN}] = :user_password
-    """)
-
-    with engine.connect() as connection:
-        row = connection.execute(
-            login_sql,
-            {"user_id": user_id, "user_password": user_password},
-        ).fetchone()
-
-    return row is not None
-
-
-@st.dialog("User Login")
-def show_login_dialog(engine):
-    """Display the login form in a modal dialog."""
-    with st.form("login_form", clear_on_submit=False):
-        user_id = st.text_input("User ID")
-        user_password = st.text_input("Password", type="password")
-        submitted = st.form_submit_button("Login", use_container_width=True)
-
-    if submitted:
-        user_id = user_id.strip()
-
-        if not user_id or not user_password:
-            st.warning("Please enter both User ID and Password.")
-            return
-
-        try:
-            if authenticate_user(engine, user_id, user_password):
-                st.session_state.is_logged_in = True
-                st.session_state.login_user_id = user_id
-                st.success("Login successful.")
-                st.rerun()
-            else:
-                st.error("Incorrect User ID or Password.")
-        except Exception as e:
-            st.error(f"Login failed because the database could not be queried: {e}")
-
-
-def logout_user():
-    """Clear the current login and chart selection state."""
-    st.session_state.is_logged_in = False
-    st.session_state.login_user_id = ""
-
-    if "erack_chart" in st.session_state:
-        st.session_state["erack_chart"] = None
-
-    st.rerun()
-
-
-def render_header(engine):
-    """Render the title and login controls while keeping the dashboard visible."""
-    title_col, user_col, action_col = st.columns([7, 2, 1])
-
-    with title_col:
-        st.title("ERACK DISABLE Events Statistics and Analysis")
-
-    with user_col:
-        if st.session_state.is_logged_in:
-            st.markdown(
-                f"<div style='text-align:right; padding-top:14px;'>"
-                f"Logged in as<br><strong>{st.session_state.login_user_id}</strong>"
-                f"</div>",
-                unsafe_allow_html=True,
-            )
-        else:
-            st.markdown(
-                "<div style='text-align:right; padding-top:22px;'>"
-                "<strong>Not logged in</strong></div>",
-                unsafe_allow_html=True,
-            )
-
-    with action_col:
-        st.write("")
-        if st.session_state.is_logged_in:
-            if st.button("Logout", use_container_width=True):
-                logout_user()
-        else:
-            if st.button("Login", use_container_width=True):
-                show_login_dialog(engine)
-
-
 def main():
-    initialize_login_state()
+    st.title("ERACK DISABLE Events Statistics and Analysis")
 
     try:
         engine = get_db_engine()
-        render_header(engine)
-
-        # Reset remains visible, but only an authenticated user can use it.
-        if st.button(
-            "Reset Charts",
-            disabled=not st.session_state.is_logged_in,
-            help=(
-                "Reset the selected chart."
-                if st.session_state.is_logged_in
-                else "Please log in to enable Reset Charts."
-            ),
-        ):
+        #-- add a button to reset the charts---
+        if st.button("Reset Charts"):
             if "erack_chart" in st.session_state:
                 st.session_state["erack_chart"] = None
-            st.rerun()
+            st.rerun()  # 重新執行應用程式以重置狀態
 
         res = run_tab1_query(engine)
+        
+        # 這是為了方便你觀察點擊後的結構變化的 Debug 訊息
+        # st.write("Debug - Click Data:", res)
+        
         selected_id = None
 
         if res is not None:
             if isinstance(res, dict):
-                selected_id = res.get("chart_event")
+                # 關鍵修正：根據你的截圖，鍵值應該是 'chart_event'
+                selected_id = res.get('chart_event') 
             elif isinstance(res, str):
                 selected_id = res
 
         if selected_id:
             st.divider()
-            run_tab2_query(engine, str(selected_id))
+            # 確保傳進去的是乾淨的字串
+            run_tab2_query(engine, str(selected_id)) 
         else:
-            st.info(
-                "請點擊上方的藍色長條圖柱子，系統將自動載入該設備的停用時間排序!"
-            )
+            st.info("請點擊上方的藍色長條圖柱子，系統將自動載入該設備的停用時間排序!")
 
     except Exception as e:
         st.error(f"An error occurred in the main function: {e}")
